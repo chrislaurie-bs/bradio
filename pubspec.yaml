@@ -15,7 +15,8 @@ dependencies:
   font_awesome_flutter: 
   http: ^0.13.4
   provider: ^6.0.1
-  just_audio: ^0.9.17
+  just_audio: 0.9.17 #^0.7.5 #^0.9.17
+  dart_phonetics: ^1.0.1
 
 dev_dependencies:
   flutter_test:

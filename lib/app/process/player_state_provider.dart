@@ -1,6 +1,6 @@
 
 
-// ignore_for_file: prefer_const_constructors
+// ignore_for_file: prefer_const_constructors, prefer_conditional_assignment
 
 import 'dart:async';
 
@@ -10,8 +10,28 @@ import 'package:bradio/app/data/services/stream_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
 
-class PlayerState extends ChangeNotifier{
-  final _player = AudioPlayer();
+class StationState extends ChangeNotifier{
+
+  late StreamSubscription _processingStateListener;
+  late Timer _whatsonTimer;
+
+  
+
+  StationState(){
+    // if (_processingStateListener == null){
+      _processingStateListener = _player.processingStateStream.listen((state) {
+          _processingState = state;
+          notifyListeners();
+        }
+      );     
+    // }
+    // if(_whatsonTimer == null){
+      _whatsonTimer = Timer.periodic(Duration(milliseconds: 1000), (timer) { 
+        _getWhatsOn();
+      });
+    // }
+  }
+  final _player = AudioPlayer(userAgent: 'bradioCL');
   
   List<RadioStream> get stationList => StreamService.streamList;
   bool get isLoadError => StreamService.isLoadError;
@@ -28,59 +48,60 @@ class PlayerState extends ChangeNotifier{
   String _playerError = '';
   String get playerError => _playerError;
 
-  Timer? _whatsonTimer;
 
   String _whatsOnNow = '';
   String get whatsOnNow => _whatsOnNow;
 
   ButtonState _buttonState = ButtonState.notPlaying;
   ButtonState get buttonState => _buttonState;
+
+  ProcessingState _processingState = ProcessingState.idle;
+  ProcessingState get processingState => _processingState;
   
+  @override
+  void dispose(){
+    _processingStateListener.cancel();
+    _whatsonTimer.cancel();
+    _player.dispose();
+    super.dispose();
+  }
 
   playStream(String station) async {
+    
     if(station == _currentStation){
       return;
     }
+    if(!_player.playing && _player.processingState == ProcessingState.loading){
+      return;
+    }
+
     _currentStation = station;
     _isPlayerError = false;
     _playerError = '';
     _whatsOnNow = '';
+    _buttonState = ButtonState.notPlaying;
     notifyListeners();
     //if player is busy loading exit 
     try {
-      if(!_player.playing && _player.processingState == ProcessingState.loading){
-        return;
-      }
 
       if(_player.playing){
-        _player.stop();
+        await _player.stop();
         _buttonState = ButtonState.notPlaying;
       }
 
-      //get station url from StreamService
       String url = StreamService.getUrl(station);
-
-      //set player url
-      await _player.setUrl(url);
-      //start playing
-      startPlaying();
-      // Future.delayed(Duration(milliseconds: 50), () async => await _player.play());
-      // _buttonState = ButtonState.playing;
-      // notifyListeners();
-      
-      if(_whatsonTimer != null){
-        _whatsonTimer!.cancel();
+      if(url.isEmpty){
+        _isPlayerError = true;
+        _playerError = 'URL not found';
+        throw('URL not found');
       }
-      
-      _whatsonTimer = Timer.periodic(Duration(milliseconds: 1000), (timer){
-        _getWhatsOn();
-      });
-      
-      
+
+      await _player.setUrl(url);
+      await _player.load();
+      startPlaying();
 
     } catch (e) {
       _isPlayerError = true;
-      _playerError = '$e';
       _buttonState = ButtonState.notPlaying;
       StreamService.removeStationbyName(station);
     } finally{
@@ -122,8 +143,16 @@ class PlayerState extends ChangeNotifier{
 
   pausePlaying() async {
     if(_player.playing){
-      await _player.stop();
-      _buttonState = ButtonState.paused;
+      try {
+        _isPlayerError = false;
+        _playerError = '';
+        await _player.stop();
+        _buttonState = ButtonState.paused;
+      } catch (e) {
+        _buttonState = ButtonState.notPlaying;
+        _isPlayerError = true;
+        _playerError = 'Could not stop player: $e';
+      }
       notifyListeners();
     }
   }

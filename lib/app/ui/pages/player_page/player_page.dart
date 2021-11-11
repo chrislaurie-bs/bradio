@@ -6,6 +6,7 @@ import 'package:bradio/app/data/model/radio_stream/radio_stream.dart';
 import 'package:bradio/app/process/player_state_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 class PlayerPage extends StatelessWidget {
@@ -13,85 +14,95 @@ class PlayerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var playerState = Provider.of<PlayerState>(context);
-    var playerStateNoListen = Provider.of<PlayerState>(context, listen: false);
+    var stationState = Provider.of<StationState>(context);
+    var stationStateNoListen = Provider.of<StationState>(context, listen: false);
     return Scaffold(
       appBar: AppBar(
         title: Text('B-Radio player'),
-        actions: [_playerButton(playerState, playerStateNoListen)],
+        actions: [_playerButton(stationState, stationStateNoListen)],
       ),
       
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: playerState.isLoadError
+          child: stationState.isLoadError
             ? Center(child: Text(
                 'There was an error loading the station list:\n\n'
-                '${playerState.loadError}'
+                '${stationState.loadError}'
                 )
               )
-            : _playerWithList(playerState, playerStateNoListen, MediaQuery.of(context).size.height / 5),
+            : _playerWithList(stationState, stationStateNoListen, MediaQuery.of(context).size.height / 5),
         ),
       )
     );
   }
 
-  Widget _playerButton(PlayerState playerState, PlayerState playerStateNoListen){
-    return playerState.buttonState == ButtonState.notPlaying
+  Widget _playerButton(StationState stationState, StationState stationStaeNoListen){
+    return stationState.buttonState == ButtonState.notPlaying
       ? Container()
-      : playerState.buttonState == ButtonState.playing
+      : stationState.buttonState == ButtonState.playing
         ? IconButton(
-            onPressed: () async  => await playerStateNoListen.pausePlaying(), 
+            onPressed: () async  => await stationStaeNoListen.pausePlaying(), 
             icon: Icon(FontAwesomeIcons.pause, size: 30)
           )
         : IconButton(
-            onPressed: () async  => await playerStateNoListen.startPlaying(), 
+            onPressed: () async  => await stationStaeNoListen.startPlaying(), 
             icon: Icon(FontAwesomeIcons.play, size: 30)
           )
     ;
   }
 
-  Widget _playerWithList(PlayerState playerState, PlayerState playerStateNoListen, double playerHeight){
+  Widget _playerWithList(StationState stationState, StationState stationStateNoListen, double playerHeight){
     return Column(
       children: [
-        _player(playerState, playerHeight),
+        stationState.processingState == ProcessingState.buffering || stationState.processingState == ProcessingState.loading
+          ? Container(
+              height: playerHeight,
+              width: playerHeight,
+              child: Padding(
+                padding: const EdgeInsets.all(60.0),
+                child: CircularProgressIndicator(),
+              )
+            )
+          : _player(stationState, playerHeight),
         Expanded(
-          child: _stationList(playerState, playerStateNoListen)
+          child: _stationList(stationState, stationStateNoListen)
         )
       ],
     );
   }
 
-  Widget _player (PlayerState playerState, double playerHeight){
+  Widget _player (StationState stationState, double playerHeight){
     return Container(
       height: playerHeight, //,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Center(
-          child: Text(
-            playerState.isPlayerError
-              ? 'There was a problem playing ${playerState.currentStation}.\n\n${playerState.playerError}'
-              : '${playerState.currentStation}${playerState.whatsOnNow}'
+          child: 
+          Text(
+            stationState.isPlayerError
+              ? 'There was a problem playing ${stationState.currentStation}.\n\n${stationState.playerError}'
+              : '${stationState.currentStation}${stationState.whatsOnNow}'
           ),
         ),
       ),
     );
   }
 
-  Widget _stationList(PlayerState playerState, PlayerState playerStateNoListen){
+  Widget _stationList(StationState stationState, StationState playerStateNoListen){
     return ListView.builder(
-      itemCount: playerState.stationCount,
+      itemCount: stationState.stationCount,
       itemBuilder: (_, idx) {
-        var _station = playerState.stationList[idx];
-        return _stationCard(playerState, playerStateNoListen, _station);
+        var _station = stationState.stationList[idx];
+        return _stationCard(stationState, playerStateNoListen, _station);
       }
     );
   }
 
-  Widget _stationCard(PlayerState playerState,  PlayerState playerStateNoListen, RadioStream station) {
-    bool isActive = playerState.currentStation == station.name;
+  Widget _stationCard(StationState stationState,  StationState stationStateNoListen, RadioStream station) {
+    bool isActive = stationState.currentStation == station.name;
     return Card(
-      elevation: playerState.currentStation == station.name ? 0 : 6,
+      elevation: stationState.currentStation == station.name ? 0 : 6,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: isActive ? Colors.teal.shade900 : Colors.grey, width: isActive ? 4 : 0),
@@ -99,7 +110,7 @@ class PlayerPage extends StatelessWidget {
       child: ListTile(
         title: Text(station.name),
         subtitle: Text(station.tags),
-        onTap: () => playerStateNoListen.playStream(station.name),
+        onTap: () => stationStateNoListen.playStream(station.name),
       ),
     );
   }

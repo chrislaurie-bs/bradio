@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:bradio/app/data/model/radio_stream/radio_stream.dart';
+import 'package:dart_phonetics/dart_phonetics.dart';
 import 'package:http/http.dart' as http;
 
 class StreamService{
@@ -22,16 +23,24 @@ class StreamService{
     _busyLoading = true;
     _isLoadError = false;
     _loadError = '';
-    const uri = 'https://nl1.api.radio-browser.info/json/stations/bycountry/netherlands?hidebroken=true';
+    const uri = 'https://nl1.api.radio-browser.info/json/stations/bycountrycodeexact/NL?hidebroken=true';
     final url = Uri.parse(uri);
     try {      
       var response = await http.get(url);
       if(response.statusCode == 200){
         var body = utf8.decode(response.bodyBytes);
         var stationsJson = jsonDecode(body);
+        var encoder = RefinedSoundex.defaultEncoder;
         for(var jStream in stationsJson){
           var _stream = RadioStream.fromMap(jStream);
-          int idx = _streamList.indexWhere((iStream) => iStream.name.trim() == _stream.name.trim());
+//          int idx = _streamList.indexWhere((iStream) => iStream.name.trim().toLowerCase() == _stream.name.trim().toLowerCase());
+          int idx = _streamList.indexWhere((iStream) {
+            
+            // return  iStream.name.trim().toLowerCase() == _stream.name.trim().toLowerCase();
+            return  iStream.name.trim().toLowerCase() == _stream.name.trim().toLowerCase() ||
+              iStream.url.trim().toLowerCase() == _stream.url.trim().toLowerCase() ||
+              encoder.encode(iStream.name.trim().toLowerCase()) == encoder.encode(_stream.name.trim().toLowerCase());
+          });
           if(idx < 0 ) {
             _streamList.add(_stream);
           } else if(

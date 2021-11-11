@@ -12,7 +12,7 @@ void main() async  {
   runApp(MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState> (create: (_) => AppState()),
-        ChangeNotifierProvider<PlayerState> (create: (_) => PlayerState()),
+        ChangeNotifierProvider<StationState> (create: (_) => StationState()),
       ],
       child: const MyApp()
     )
